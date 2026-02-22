@@ -1,0 +1,141 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String         @id @default(cuid())
+  email     String         @unique
+  password  String
+  nickname  String
+  avatarUrl String?
+  createdAt DateTime       @default(now())
+
+  records   CoffeeRecord[]
+  templates Template[]
+  posts     Post[]         @relation("PostAuthor")
+  comments  Comment[]      @relation("CommentAuthor")
+  groups    GroupMember[]
+}
+
+model CoffeeRecord {
+  id           String     @id @default(cuid())
+  userId       String
+  groupId      String?
+  date         DateTime
+  visibility   Visibility
+  dripper      String?
+  filter       String?
+  grinder      String?
+  grindSize    String?
+  beanOrigin   String?
+  beanAltitude String?
+  beanVariety  String?
+  beanNotes    String?
+  recipe       Json
+  rating       Json?
+  memo         String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  user  User   @relation(fields: [userId], references: [id])
+  group Group? @relation(fields: [groupId], references: [id])
+  posts Post[]
+
+  @@index([date])
+  @@index([userId, date])
+}
+
+model Template {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  data      Json
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+model Group {
+  id        String        @id @default(cuid())
+  name      String
+  createdAt DateTime      @default(now())
+
+  members GroupMember[]
+  records CoffeeRecord[]
+  posts   Post[]
+  invites Invite[]
+}
+
+model GroupMember {
+  id      String    @id @default(cuid())
+  groupId String
+  userId  String
+  role    GroupRole
+
+  group Group @relation(fields: [groupId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@unique([groupId, userId])
+}
+
+model Invite {
+  id        String   @id @default(cuid())
+  groupId   String
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  group Group @relation(fields: [groupId], references: [id])
+}
+
+model Post {
+  id         String     @id @default(cuid())
+  authorId   String
+  groupId    String?
+  recordId   String?
+  title      String
+  content    String
+  imageUrl   String?
+  visibility Visibility
+  createdAt  DateTime   @default(now())
+
+  author   User         @relation("PostAuthor", fields: [authorId], references: [id])
+  group    Group?       @relation(fields: [groupId], references: [id])
+  record   CoffeeRecord? @relation(fields: [recordId], references: [id])
+  comments Comment[]
+
+  @@index([createdAt])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  authorId  String
+  parentId  String?
+  content   String
+  createdAt DateTime @default(now())
+
+  post   Post      @relation(fields: [postId], references: [id])
+  author User      @relation("CommentAuthor", fields: [authorId], references: [id])
+  parent Comment?  @relation("CommentThread", fields: [parentId], references: [id])
+  replies Comment[] @relation("CommentThread")
+}
+
+enum Visibility {
+  PRIVATE
+  GROUP
+  PUBLIC
+}
+
+enum GroupRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
